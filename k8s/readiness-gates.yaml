@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: readiness-gate-config
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: readiness
+data:
+  readiness-gate.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Function to check external dependency
+    check_dependency() {
+      local name=$1
+      local url=$2
+      local timeout=${3:-10}
+      
+      echo "Checking $name at $url..."
+      if curl -f -s --max-time $timeout "$url" > /dev/null; then
+        echo "✓ $name is healthy"
+        return 0
+      else
+        echo "✗ $name is unhealthy"
+        return 1
+      fi
+    }
+    
+    # Check all external dependencies
+    DEPENDENCIES_HEALTHY=true
+    
+    # Check Rick & Morty API
+    if ! check_dependency "Rick & Morty API" "https://rickandmortyapi.com/api/character/1"; then
+      DEPENDENCIES_HEALTHY=false
+    fi
+    
+    # Check database (if external)
+    if [ -n "$DATABASE_URL" ]; then
+      if ! check_dependency "Database" "$DATABASE_URL"; then
+        DEPENDENCIES_HEALTHY=false
+      fi
+    fi
+    
+    # Check Redis (if external)
+    if [ -n "$REDIS_URL" ]; then
+      if ! check_dependency "Redis" "$REDIS_URL"; then
+        DEPENDENCIES_HEALTHY=false
+      fi
+    fi
+    
+    # Check Jaeger (if external)
+    if [ -n "$JAEGER_ENDPOINT" ]; then
+      if ! check_dependency "Jaeger" "$JAEGER_ENDPOINT"; then
+        DEPENDENCIES_HEALTHY=false
+      fi
+    fi
+    
+    if [ "$DEPENDENCIES_HEALTHY" = true ]; then
+      echo "All external dependencies are healthy"
+      exit 0
+    else
+      echo "Some external dependencies are unhealthy"
+      exit 1
+    fi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rick-morty-api-readiness-gate
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: readiness-gate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rick-morty-api-readiness-gate
+  template:
+    metadata:
+      labels:
+        app: rick-morty-api-readiness-gate
+    spec:
+      containers:
+      - name: readiness-gate
+        image: curlimages/curl:latest
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do /scripts/readiness-gate.sh && sleep 30; done"]
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: rick-morty-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: rick-morty-secrets
+              key: redis-url
+        - name: JAEGER_ENDPOINT
+          value: "jaeger-collector:14268"
+        volumeMounts:
+        - name: readiness-script
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: readiness-script
+        configMap:
+          name: readiness-gate-config
+          defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rick-morty-api-readiness-gate
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: readiness-gate
+spec:
+  selector:
+    app: rick-morty-api-readiness-gate
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http

@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rick-morty-api.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rick-morty-api.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  strategy:
+    {{- toYaml .Values.deployment.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "rick-morty-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rick-morty-api.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "{{ .Values.monitoring.prometheus.scrape }}"
+        prometheus.io/port: "{{ .Values.monitoring.prometheus.port }}"
+        prometheus.io/path: "{{ .Values.monitoring.prometheus.path }}"
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "rick-morty-api.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.port }}
+          protocol: TCP
+        - name: metrics
+          containerPort: {{ .Values.service.metricsPort }}
+          protocol: TCP
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rick-morty-api.fullname" . }}-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rick-morty-api.fullname" . }}-secrets
+              key: redis-url
+        - name: JAEGER_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rick-morty-api.fullname" . }}-secrets
+              key: jaeger-endpoint
+        {{- range $key, $value := .Values.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          {{- toYaml .Values.healthCheck.liveness | nindent 10 }}
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          {{- toYaml .Values.healthCheck.readiness | nindent 10 }}
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+        {{- if .Values.logging.fluentd.enabled }}
+      - name: fluentd
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+        image: "{{ .Values.logging.fluentd.image.repository }}:{{ .Values.logging.fluentd.image.tag }}"
+        env:
+        - name: FLUENTD_CONF
+          value: "fluent.conf"
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+        - name: fluentd-config
+          mountPath: /fluentd/etc
+        resources:
+          {{- toYaml .Values.logging.fluentd.resources | nindent 10 }}
+        {{- end }}
+      volumes:
+      - name: logs
+        emptyDir: {}
+      {{- if .Values.logging.fluentd.enabled }}
+      - name: fluentd-config
+        configMap:
+          name: {{ include "rick-morty-api.fullname" . }}-fluentd-config
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.image.pullSecrets | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60

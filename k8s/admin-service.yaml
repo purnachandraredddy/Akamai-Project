@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rick-morty-admin-service
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: admin
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: rick-morty-api
+---
+# NetworkPolicy to restrict admin access to ops namespace only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rick-morty-admin-access
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: rick-morty-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ops  # Only allow access from ops namespace
+    ports:
+    - protocol: TCP
+      port: 8000

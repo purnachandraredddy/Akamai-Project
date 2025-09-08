@@ -1,0 +1,196 @@
+groups:
+- name: rick-morty-api-alerts
+  rules:
+  # High Error Rate Alert
+  - alert: HighErrorRate
+    expr: |
+      (
+        rate(http_requests_total{status_code=~"5.."}[5m]) /
+        rate(http_requests_total[5m])
+      ) * 100 > 5
+    for: 2m
+    labels:
+      severity: critical
+      service: rick-morty-api
+    annotations:
+      summary: "High error rate detected for Rick & Morty API"
+      description: "Error rate is {{ $value }}% for the last 5 minutes. This indicates potential service degradation."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/high-error-rate.md"
+
+  # High Latency Alert
+  - alert: HighLatency
+    expr: |
+      histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+    for: 3m
+    labels:
+      severity: warning
+      service: rick-morty-api
+    annotations:
+      summary: "High latency detected for Rick & Morty API"
+      description: "95th percentile latency is {{ $value }}s, which exceeds the 2s threshold."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/high-latency.md"
+
+  # Error Budget Burn (multi-window, multi-burn-rate) for 28d SLO of 99.9%
+  # Fast burn (critical): 2% in 1h and 2% in 5m windows
+  - alert: ErrorBudgetBurnCritical
+    expr: |
+      (
+        (
+          sum(rate(http_requests_total{status_code=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))
+        ) > (1 - 0.999) * 14
+      )
+      and
+      (
+        (
+          sum(rate(http_requests_total{status_code=~"5.."}[1h])) / sum(rate(http_requests_total[1h]))
+        ) > (1 - 0.999) * 6
+      )
+    for: 5m
+    labels:
+      severity: critical
+      slo: availability-28d-99.9
+      service: rick-morty-api
+    annotations:
+      summary: "Critical error-budget burn"
+      description: "Error budget is burning fast (5m and 1h). Investigate immediately."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/error-budget-burn.md"
+
+  # Slow burn (warning): 2% in 6h and 2% in 1h windows
+  - alert: ErrorBudgetBurnWarning
+    expr: |
+      (
+        (
+          sum(rate(http_requests_total{status_code=~"5.."}[1h])) / sum(rate(http_requests_total[1h]))
+        ) > (1 - 0.999) * 3
+      )
+      and
+      (
+        (
+          sum(rate(http_requests_total{status_code=~"5.."}[6h])) / sum(rate(http_requests_total[6h]))
+        ) > (1 - 0.999) * 1
+      )
+    for: 15m
+    labels:
+      severity: warning
+      slo: availability-28d-99.9
+      service: rick-morty-api
+    annotations:
+      summary: "Elevated error-budget burn"
+      description: "Error budget is burning above thresholds (1h and 6h)."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/error-budget-burn.md"
+
+  # Pod Crash Loop Alert
+  - alert: PodCrashLoop
+    expr: |
+      rate(kube_pod_container_status_restarts_total{pod=~"rick-morty-api-.*"}[15m]) > 0
+    for: 1m
+    labels:
+      severity: critical
+      service: rick-morty-api
+    annotations:
+      summary: "Pod crash loop detected"
+      description: "Pod {{ $labels.pod }} is restarting frequently ({{ $value }} restarts per minute)."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/pod-crash-loop.md"
+
+  # Database Connection Issues
+  - alert: DatabaseConnectionIssues
+    expr: |
+      database_connections_active == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: rick-morty-api
+    annotations:
+      summary: "Database connection issues detected"
+      description: "No active database connections found. This may indicate database connectivity problems."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/database-issues.md"
+
+  # High Memory Usage
+  - alert: HighMemoryUsage
+    expr: |
+      (
+        container_memory_usage_bytes{pod=~"rick-morty-api-.*"} /
+        container_spec_memory_limit_bytes{pod=~"rick-morty-api-.*"}
+      ) * 100 > 85
+    for: 5m
+    labels:
+      severity: warning
+      service: rick-morty-api
+    annotations:
+      summary: "High memory usage detected"
+      description: "Memory usage is {{ $value }}% for pod {{ $labels.pod }}."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/high-memory-usage.md"
+
+  # High CPU Usage
+  - alert: HighCPUUsage
+    expr: |
+      (
+        rate(container_cpu_usage_seconds_total{pod=~"rick-morty-api-.*"}[5m]) /
+        container_spec_cpu_quota{pod=~"rick-morty-api-.*"} * container_spec_cpu_period{pod=~"rick-morty-api-.*"}
+      ) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      service: rick-morty-api
+    annotations:
+      summary: "High CPU usage detected"
+      description: "CPU usage is {{ $value }}% for pod {{ $labels.pod }}."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/high-cpu-usage.md"
+
+  # External API Failures
+  - alert: ExternalAPIFailures
+    expr: |
+      rate(external_api_calls_total{status="error"}[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: warning
+      service: rick-morty-api
+    annotations:
+      summary: "External API failures detected"
+      description: "External API error rate is {{ $value }} errors per second."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/external-api-failures.md"
+
+  # Cache Hit Rate Low
+  - alert: LowCacheHitRate
+    expr: |
+      (
+        rate(cache_hits_total[5m]) /
+        (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+      ) * 100 < 70
+    for: 5m
+    labels:
+      severity: warning
+      service: rick-morty-api
+    annotations:
+      summary: "Low cache hit rate detected"
+      description: "Cache hit rate is {{ $value }}%, which is below the 70% threshold."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/low-cache-hit-rate.md"
+
+  # Service Down
+  - alert: ServiceDown
+    expr: |
+      up{job="rick-morty-api"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: rick-morty-api
+    annotations:
+      summary: "Rick & Morty API service is down"
+      description: "The Rick & Morty API service is not responding to health checks."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/service-down.md"
+
+  # Disk Space Low
+  - alert: DiskSpaceLow
+    expr: |
+      (
+        (node_filesystem_avail_bytes{mountpoint="/"} /
+         node_filesystem_size_bytes{mountpoint="/"})
+      ) * 100 < 10
+    for: 5m
+    labels:
+      severity: warning
+      service: rick-morty-api
+    annotations:
+      summary: "Low disk space detected"
+      description: "Disk space is {{ $value }}% available on node {{ $labels.instance }}."
+      runbook_url: "https://github.com/your-org/rick-morty-api/blob/main/docs/runbooks/disk-space-low.md"

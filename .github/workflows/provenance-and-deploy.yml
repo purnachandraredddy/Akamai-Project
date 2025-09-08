@@ -1,0 +1,50 @@
+name: Provenance and Deploy
+
+on:
+  workflow_run:
+    workflows: ["Build, SBOM, Sign"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  attest:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate SLSA provenance (keyless)
+        uses: slsa-framework/slsa-github-generator/actions/attest-build-provenance@v2
+        with:
+          subject-digest: ${{ github.event.workflow_run.head_sha }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+  verify-and-deploy:
+    needs: attest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify signature
+        uses: sigstore/cosign-installer@v3.8.1
+      - name: Cosign verify (keyless)
+        run: |
+          cosign verify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.workflow_run.head_sha }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+
+      - name: Verify provenance (slsa-verifier)
+        uses: slsa-framework/slsa-verifier/action@v2.6.0
+        with:
+          slsa-workflow-recipient: ${{ github.repository }}
+          artifact-uri: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy (gated)
+        if: ${{ success() }}
+        run: |
+          echo "Provenance and signature verified. Proceed with deployment here."

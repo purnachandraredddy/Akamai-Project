@@ -1,0 +1,35 @@
+apiVersion: v2
+name: rick-morty-api
+description: A production-grade FastAPI wrapper for the Rick & Morty API with caching, database persistence, and monitoring
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - fastapi
+  - rick-morty
+  - api
+  - microservice
+  - monitoring
+home: https://github.com/your-org/rick-morty-api
+sources:
+  - https://github.com/your-org/rick-morty-api
+maintainers:
+  - name: Your Name
+    email: your.email@example.com
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: prometheus
+    version: "25.x.x"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: monitoring.prometheus.enabled
+  - name: grafana
+    version: "7.x.x"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: monitoring.grafana.enabled

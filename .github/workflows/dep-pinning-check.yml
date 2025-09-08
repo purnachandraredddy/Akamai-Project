@@ -1,0 +1,24 @@
+name: Dependency Pinning Check
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  pinning:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure pinned requirements
+        run: |
+          if grep -E '^[a-zA-Z0-9_.-]+(==|===)[0-9]' requirements.txt | wc -l | grep -q '^0$'; then
+            echo "No pinned dependencies detected" && exit 1
+          fi
+          if grep -E '^[^#].*(>=|>|<=|<|~=)' requirements.txt; then
+            echo "Unpinned/loose constraints found" && exit 1
+          fi
+          if grep -E 'git\+|http://|https://' requirements.txt; then
+            echo "URL-based requirements not allowed" && exit 1
+          fi
+          echo "Dependency pinning check passed"

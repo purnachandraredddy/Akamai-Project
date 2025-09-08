@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: default
+  labels:
+    app: rick-morty-api
+data:
+  fluent.conf: |
+    <source>
+      @type tail
+      path /app/logs/*.log
+      pos_file /var/log/fluentd/rick-morty-api.log.pos
+      tag rick-morty-api
+      format json
+      time_key time
+      time_format %Y-%m-%dT%H:%M:%S.%L%z
+    </source>
+    
+    <filter rick-morty-api>
+      @type record_transformer
+      <record>
+        service_name rick-morty-api
+        environment production
+      </record>
+    </filter>
+    
+    <match rick-morty-api>
+      @type elasticsearch
+      host elasticsearch.logging.svc.cluster.local
+      port 9200
+      index_name rick-morty-api-logs
+      type_name _doc
+      include_tag_key true
+      tag_key @log_name
+      flush_interval 1s
+      <buffer>
+        @type file
+        path /var/log/fluentd/buffers/rick-morty-api
+        flush_mode interval
+        retry_type exponential_backoff
+        flush_thread_count 2
+        flush_interval 5s
+        retry_forever
+        retry_max_interval 30
+        chunk_limit_size 2M
+        queue_limit_length 8
+        overflow_action block
+      </buffer>
+    </match>
+    
+    <match **>
+      @type stdout
+    </match>

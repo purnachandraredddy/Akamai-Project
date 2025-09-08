@@ -1,0 +1,47 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rick-morty-api-pdb
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: availability
+  annotations:
+    description: "Pod Disruption Budget for Rick & Morty API ensuring high availability"
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: rick-morty-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rick-morty-api-pdb-percentage
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: availability
+  annotations:
+    description: "Percentage-based PDB for Rick & Morty API"
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: rick-morty-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rick-morty-api-pdb-max-unavailable
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: availability
+  annotations:
+    description: "Max unavailable PDB for Rick & Morty API"
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: rick-morty-api

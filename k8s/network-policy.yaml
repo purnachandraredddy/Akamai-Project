@@ -1,0 +1,167 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rick-morty-api-network-policy
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: network-security
+  annotations:
+    description: "NetworkPolicy for Rick & Morty API restricting network access"
+spec:
+  podSelector:
+    matchLabels:
+      app: rick-morty-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from nginx-ingress
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow ingress from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090
+  # Allow ingress from same namespace (internal communication)
+  - from:
+    - podSelector:
+        matchLabels:
+          app: rick-morty-api
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9090
+  # Allow ingress from admin namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: admin
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow egress to database
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgresql
+    - namespaceSelector:
+        matchLabels:
+          name: database
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow egress to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    - namespaceSelector:
+        matchLabels:
+          name: cache
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow egress to external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+  # Allow egress to DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow egress to Jaeger
+  - to:
+    - podSelector:
+        matchLabels:
+          app: jaeger
+    - namespaceSelector:
+        matchLabels:
+          name: tracing
+    ports:
+    - protocol: TCP
+      port: 14268
+    - protocol: TCP
+      port: 14250
+  # Allow egress to monitoring
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9090
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rick-morty-api-deny-all
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: network-security
+  annotations:
+    description: "Default deny-all NetworkPolicy for Rick & Morty API namespace"
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rick-morty-api-allow-monitoring
+  namespace: default
+  labels:
+    app: rick-morty-api
+    component: network-security
+  annotations:
+    description: "Allow monitoring access to Rick & Morty API"
+spec:
+  podSelector:
+    matchLabels:
+      app: rick-morty-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    - podSelector:
+        matchLabels:
+          app: grafana
+    ports:
+    - protocol: TCP
+      port: 9090
+    - protocol: TCP
+      port: 8000
