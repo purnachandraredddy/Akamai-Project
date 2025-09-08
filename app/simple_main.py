@@ -3,27 +3,24 @@ Simplified main application without problematic dependencies
 """
 
 import logging
-import asyncio
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from typing import Dict, Any
+import time
 from datetime import datetime
-import signal
-import sys
 
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+from .config import settings
 from .health import health_checker, lifespan_context
 from .health_api import router as health_router
-from .config import settings
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -37,7 +34,7 @@ app = FastAPI(
     version=settings.app_version,
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan_context
+    lifespan=lifespan_context,
 )
 
 # Add rate limiting
@@ -56,6 +53,7 @@ app.add_middleware(
 # Include the health check router
 app.include_router(health_router)
 
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -64,10 +62,7 @@ async def root():
         "message": "Rick & Morty API",
         "version": settings.app_version,
         "environment": "production" if not settings.debug else "development",
-        "documentation": {
-            "swagger_ui": "/docs",
-            "redoc": "/redoc"
-        },
+        "documentation": {"swagger_ui": "/docs", "redoc": "/redoc"},
         "endpoints": {
             "health": "/health",
             "liveness": "/health/live",
@@ -76,9 +71,10 @@ async def root():
             "api_base": "/api/v1",
             "characters": "/api/v1/characters",
             "locations": "/api/v1/locations",
-            "episodes": "/api/v1/episodes"
-        }
+            "episodes": "/api/v1/episodes",
+        },
     }
+
 
 # Simple health check endpoint
 @app.get("/health")
@@ -86,10 +82,7 @@ async def health_check():
     """Simple health check endpoint"""
     try:
         health_data = await health_checker.check_health()
-        return JSONResponse(
-            status_code=200,
-            content=health_data
-        )
+        return JSONResponse(status_code=200, content=health_data)
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return JSONResponse(
@@ -97,9 +90,10 @@ async def health_check():
             content={
                 "status": "unhealthy",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
-            }
+                "timestamp": datetime.utcnow().isoformat(),
+            },
         )
+
 
 # Simple API endpoints for testing
 @app.get("/api/v1/characters")
@@ -109,8 +103,9 @@ async def get_characters(request: Request):
     return {
         "message": "Characters endpoint - simplified version",
         "timestamp": datetime.utcnow().isoformat(),
-        "request_id": f"req_{int(time.time() * 1000)}"
+        "request_id": f"req_{int(time.time() * 1000)}",
     }
+
 
 @app.get("/api/v1/locations")
 @limiter.limit("100/60 seconds")
@@ -119,8 +114,9 @@ async def get_locations(request: Request):
     return {
         "message": "Locations endpoint - simplified version",
         "timestamp": datetime.utcnow().isoformat(),
-        "request_id": f"req_{int(time.time() * 1000)}"
+        "request_id": f"req_{int(time.time() * 1000)}",
     }
+
 
 @app.get("/api/v1/episodes")
 @limiter.limit("100/60 seconds")
@@ -129,15 +125,17 @@ async def get_episodes(request: Request):
     return {
         "message": "Episodes endpoint - simplified version",
         "timestamp": datetime.utcnow().isoformat(),
-        "request_id": f"req_{int(time.time() * 1000)}"
+        "request_id": f"req_{int(time.time() * 1000)}",
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.simple_main:app",
         host=settings.api_host,
         port=settings.api_port,
         workers=1,  # Single worker for simplicity
-        reload=settings.debug
+        reload=settings.debug,
     )
