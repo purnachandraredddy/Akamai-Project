@@ -29,7 +29,7 @@ lz4==4.3.2
 
 # Rate limiting and security
 slowapi==0.1.9
-python-multipart==0.0.12
+python-multipart==0.0.20
 
 # Configuration and environment
 python-dotenv==1.0.1
