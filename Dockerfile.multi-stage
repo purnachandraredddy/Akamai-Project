@@ -85,7 +85,6 @@ WORKDIR /app
 
 # Copy application code
 COPY --chown=appuser:appuser app/ /app/app/
-COPY --chown=appuser:appuser docs/ /app/docs/
 COPY --chown=appuser:appuser monitoring/ /app/monitoring/
 COPY --chown=appuser:appuser *.py /app/
 COPY --chown=appuser:appuser *.md /app/
