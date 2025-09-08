@@ -54,10 +54,9 @@ spec:
             secretKeyRef:
               name: {{ include "rick-morty-api.fullname" . }}-secrets
               key: jaeger-endpoint
-        {{- range $key, $value := .Values.env }}
-        - name: {{ $key }}
-          value: {{ $value | quote }}
-        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "rick-morty-api.fullname" . }}-config
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         livenessProbe:

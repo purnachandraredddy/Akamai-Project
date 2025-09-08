@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rick-morty-api.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rick-morty-api.labels" . | nindent 4 }}
+data:
+  # Application configuration
+  DEBUG: "{{ .Values.env.DEBUG }}"
+  API_WORKERS: "{{ .Values.env.API_WORKERS }}"
+  ENABLE_METRICS: "{{ .Values.env.ENABLE_METRICS }}"
+  ENABLE_TRACING: "{{ .Values.env.ENABLE_TRACING }}"
+  CACHE_TTL: "{{ .Values.env.CACHE_TTL }}"
+  RATE_LIMIT_REQUESTS: "{{ .Values.env.RATE_LIMIT_REQUESTS }}"
+  RATE_LIMIT_WINDOW: "{{ .Values.env.RATE_LIMIT_WINDOW }}"
+  EXTERNAL_API_TIMEOUT: "{{ .Values.env.EXTERNAL_API_TIMEOUT }}"
+  EXTERNAL_API_MAX_RETRIES: "{{ .Values.env.EXTERNAL_API_MAX_RETRIES }}"
+  EXTERNAL_API_BACKOFF_DELAY: "{{ .Values.env.EXTERNAL_API_BACKOFF_DELAY }}"
+  
+  # Jaeger configuration
+  JAEGER_ENDPOINT: "{{ .Values.secrets.jaeger.endpoint }}"
+  
+  # Logging configuration
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
