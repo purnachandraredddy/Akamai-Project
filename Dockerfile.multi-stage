@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for Rick & Morty API
 # Stage 1: Build stage
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set build arguments
 ARG BUILDPLATFORM
@@ -43,7 +43,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Stage 2: Production stage
-FROM python:3.11-slim as production
+FROM python:3.11-slim AS production
 
 # Set build arguments
 ARG BUILD_DATE
@@ -119,7 +119,7 @@ ENTRYPOINT ["dumb-init", "--"]
 CMD ["python", "-m", "uvicorn", "app.simple_main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
 
 # Stage 3: Development stage (optional)
-FROM production as development
+FROM production AS development
 
 # Switch back to root for development tools
 USER root
