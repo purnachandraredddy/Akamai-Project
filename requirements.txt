@@ -6,7 +6,7 @@ pydantic_core==2.33.2
 starlette==0.47.3
 
 # Database and caching
-asyncpg==0.29.0
+asyncpg==0.30.0
 sqlalchemy[asyncio]==2.0.36
 alembic==1.14.0
 redis==5.2.0
